@@ -10,8 +10,8 @@ main().then(async (resArr) => {
             const [logServiceError] = await to(logService.sendMessage(err.err_msg));
             if (logServiceError) await logService.error(logServiceError);
         }
-        return;
     }
+    if (!res) return;
     console.log(res.err_msg.join('\n'));
     for (let logService of LogServices) {
         const [logServiceError] = await to(logService.sendMessage(res.err_msg));

@@ -1,4 +1,5 @@
-import { checkIn, getStatus, getCounts, getCurPoint } from './services/index.js';
+import { checkIn, doLotteryDraw, getCounts, getCurPoint, getLotteryConfig, getStatus } from './services/index.js';
+import wrapMessage from './utils/wrap-message.js';
 
 async function getInfo() {
     const [err1, res1] = await getCurPoint();
@@ -14,20 +15,55 @@ async function getInfo() {
     return message;
 }
 
+async function lotteryDraw() {
+    const [err1, res1] = await getLotteryConfig();
+
+    const result = [null, null];
+    if (err1) {
+        result[0] = err1;
+        return result;
+    }
+    const count = res1.data.free_count;
+
+    if (count === 0) {
+        result[1] = wrapMessage('今日已免费抽奖！');
+        return result;
+    }
+
+    const [err, res] = await doLotteryDraw();
+    if (err) {
+        result[0] = wrapMessage(err);
+    }
+    if (res) {
+        result[1] = wrapMessage(`恭喜抽中${res.data.lottery_name}`);
+    }
+
+    return result;
+}
+
 export async function main() {
     const [err, res] = await getStatus();
     if (err) {
-        return [err, res];
+        return [wrapMessage(err), res];
     }
-    // 未签到
+
     if (res.err_no === 0 && !res.data) {
-        // 签到
-        const [err] = await checkIn();
+        // 未签到
+        // 开始签到
+        const [err1, res1] = await checkIn();
+        const [err2, res2] = await lotteryDraw();
         const message = await getInfo();
-        return [err, { err_msg: message }];
+        return [
+            err1,
+            wrapMessage({
+                err_msg: [res1.err_msg === 'success' ? '签到成功！' : res1.err_msg, ...res2.err_msg, ...message],
+            }),
+        ];
     } else {
         const message = await getInfo();
-        message.unshift('您今日已完成签到，请勿重复签到！');
-        return [err, { err_msg: message }];
+        const [err2, res2] = await lotteryDraw();
+        message.unshift(...res2.err_msg);
+        message.unshift('请勿重复签到！');
+        return [err2, { err_msg: message }];
     }
 }

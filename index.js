@@ -21,12 +21,13 @@ try {
                 const [logServiceError] = await to(logService.sendMessage(err.err_msg));
                 if (logServiceError) await logService.error(logServiceError);
             }
-            return;
         }
-        core.setOutput('checkInResult', res.err_msg.join('\n'));
-        for (let logService of LogServices) {
-            const [logServiceError] = await to(logService.sendMessage(res.err_msg));
-            if (logServiceError) await logService.error(logServiceError);
+        if (res) {
+            core.setOutput('checkInResult', res.err_msg.join('\n'));
+            for (let logService of LogServices) {
+                const [logServiceError] = await to(logService.sendMessage(res.err_msg));
+                if (logServiceError) await logService.error(logServiceError);
+            }
         }
     });
 } catch (error) {
