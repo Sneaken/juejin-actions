@@ -17917,12 +17917,21 @@ var require_nodemailer = __commonJS({
 // src/services/request.js
 var import_axios = __toESM(require_axios2(), 1);
 
+// src/utils/wrap-message.js
+function wrapMessage(error) {
+  if (!error)
+    return null;
+  const { err_msg, ...params } = error;
+  const isMsgArray = Array.isArray(err_msg);
+  return { ...params, err_msg: err_msg ? isMsgArray ? [...err_msg] : [err_msg] : [error] };
+}
+
 // src/services/await-to-js.js
 var to = function(promise) {
   return promise.then((res) => {
     return [null, res];
   }).catch((err) => {
-    return [err, null];
+    return [wrapMessage(err), null];
   });
 };
 var await_to_js_default = to;
@@ -17957,27 +17966,41 @@ var request = async function(options) {
   console.log("\u8C03\u7528\u7684\u63A5\u53E3\uFF1A", options);
   const lastOptions = Object.assign({}, options, { headers });
   const [err, res] = await await_to_js_default((0, import_axios.default)(lastOptions));
-  let result = [err, res];
   if (err || !isObject(res)) {
-    return result;
+    return [err, res];
   }
   const {
     data: { err_no: dataErrNo }
   } = res;
-  if (dataErrNo === 0) {
-    result = [err, res && res.data];
+  switch (dataErrNo) {
+    case 0:
+      return [null, res && res.data];
+    case 403:
+      return [
+        wrapMessage({
+          ...res.data,
+          err_msg: ["\u76EE\u524D\u672A\u767B\u5F55\uFF0C\u8BF7\u68C0\u67E5 JUEJIN_COOKIE \u662F\u5426\u6B63\u786E"]
+        }),
+        null
+      ];
+    default:
+      return [wrapMessage({ ...res.data }), res.data];
   }
-  if (dataErrNo === 403) {
-    result = [
-      { ...res.data, err_msg: [res.data.err_msg, "\u76EE\u524D\u672A\u767B\u5F55\uFF0C\u8BF7\u68C0\u67E5 JUEJIN_COOKIE \u662F\u5426\u6B63\u786E"] },
-      res.data
-    ];
-  }
-  return result;
 };
 
 // src/services/index.js
 var prefix = "https://api.juejin.cn/growth_api/v1/";
+var getLotteryConfig = async function() {
+  return await request({
+    url: `${prefix}lottery_config/get`
+  });
+};
+var doLotteryDraw = async function() {
+  return await request({
+    url: `${prefix}lottery/draw`,
+    method: "post"
+  });
+};
 var getStatus = async function() {
   return await request({
     url: `${prefix}get_today_status`
@@ -18015,19 +18038,48 @@ async function getInfo() {
   }
   return message;
 }
+async function lotteryDraw() {
+  const [err1, res1] = await getLotteryConfig();
+  const result = [null, null];
+  if (err1) {
+    result[0] = err1;
+    return result;
+  }
+  const count = res1.data.free_count;
+  if (count === 0) {
+    result[1] = wrapMessage("\u4ECA\u65E5\u5DF2\u514D\u8D39\u62BD\u5956\uFF01");
+    return result;
+  }
+  const [err, res] = await doLotteryDraw();
+  if (err) {
+    result[0] = wrapMessage(err);
+  }
+  if (res) {
+    result[1] = wrapMessage(`\u606D\u559C\u62BD\u4E2D${res.data.lottery_name}`);
+  }
+  return result;
+}
 async function main() {
   const [err, res] = await getStatus();
   if (err) {
-    return [err, res];
+    return [wrapMessage(err), res];
   }
   if (res.err_no === 0 && !res.data) {
-    const [err2] = await checkIn();
+    const [err1, res1] = await checkIn();
+    const [err2, res2] = await lotteryDraw();
     const message = await getInfo();
-    return [err2, { err_msg: message }];
+    return [
+      err1,
+      wrapMessage({
+        err_msg: [res1.err_msg === "success" ? "\u7B7E\u5230\u6210\u529F\uFF01" : res1.err_msg, ...res2.err_msg, ...message]
+      })
+    ];
   } else {
     const message = await getInfo();
-    message.unshift("\u60A8\u4ECA\u65E5\u5DF2\u5B8C\u6210\u7B7E\u5230\uFF0C\u8BF7\u52FF\u91CD\u590D\u7B7E\u5230\uFF01");
-    return [err, { err_msg: message }];
+    const [err2, res2] = await lotteryDraw();
+    message.unshift(...res2.err_msg);
+    message.unshift("\u8BF7\u52FF\u91CD\u590D\u7B7E\u5230\uFF01");
+    return [err2, { err_msg: message }];
   }
 }
 
@@ -18117,13 +18169,14 @@ try {
         if (logServiceError)
           await logService.error(logServiceError);
       }
-      return;
     }
-    core.setOutput("checkInResult", res.err_msg.join("\n"));
-    for (let logService of log_default) {
-      const [logServiceError] = await await_to_js_default(logService.sendMessage(res.err_msg));
-      if (logServiceError)
-        await logService.error(logServiceError);
+    if (res) {
+      core.setOutput("checkInResult", res.err_msg.join("\n"));
+      for (let logService of log_default) {
+        const [logServiceError] = await await_to_js_default(logService.sendMessage(res.err_msg));
+        if (logServiceError)
+          await logService.error(logServiceError);
+      }
     }
   });
 } catch (error) {
