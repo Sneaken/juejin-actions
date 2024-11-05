@@ -1,10 +1,10 @@
 name: '掘金 github actions'
-on: 
+on:
  push:
  workflow_dispatch:
  schedule:
  # 定时任务 每天 8:00 自动签到，按照计划任务队列，可能延迟 0 + 8 = 北京时间 8
-    - cron: '00 0 * * *'
+    - cron: '00 12 * * *'
 
 jobs:
   juejin:
@@ -14,7 +14,7 @@ jobs:
       - name: Hello world action step
         id: hello
         uses: Sneaken/juejin-actions@main
-        env: 
+        env:
           JUEJIN_COOKIE: ${{secrets.JUEJIN_COOKIE}}
           MAIL_SENDER: ${{secrets.MAIL_SENDER}}
           SMTP_PASSWORD: ${{secrets.SMTP_PASSWORD}}
@@ -22,7 +22,7 @@ jobs:
           MAIL_PORT_SENDER: ${{secrets.MAIL_PORT_SENDER}}
           MAIL_RECIPIENT: ${{secrets.MAIL_RECIPIENT}}
         with:
-          who-to-greet: '若川'
+          who-to-greet: 'Sneaken'
       # Use the output from the `hello` step
       - name: 点此查看输出结果，比如：签到结果
         run: | 

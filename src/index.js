@@ -49,21 +49,28 @@ export async function main() {
 
     if (res.err_no === 0 && !res.data) {
         // 未签到
-        // 开始签到
-        const [err1, res1] = await checkIn();
-        const [err2, res2] = await lotteryDraw();
-        const message = await getInfo();
-        return [
-            err1,
-            wrapMessage({
-                err_msg: [res1.err_msg === 'success' ? '签到成功！' : res1.err_msg, ...res2.err_msg, ...message],
-            }),
-        ];
-    } else {
-        const message = await getInfo();
-        const [err2, res2] = await lotteryDraw();
-        message.unshift(...res2.err_msg);
-        message.unshift('请勿重复签到！');
-        return [err2, { err_msg: message }];
+        return [wrapMessage({ err_msg: ['今日未签到，请前去签到'] }), null];
     }
+
+    return [];
+
+    // if (res.err_no === 0 && !res.data) {
+    //     // 未签到
+    //     // 开始签到
+    //     const [err1, res1] = await checkIn();
+    //     const [err2, res2] = await lotteryDraw();
+    //     const message = await getInfo();
+    //     return [
+    //         err1,
+    //         wrapMessage({
+    //             err_msg: [res1.err_msg === 'success' ? '签到成功！' : res1.err_msg, ...res2.err_msg, ...message],
+    //         }),
+    //     ];
+    // } else {
+    //     const message = await getInfo();
+    //     const [err2, res2] = await lotteryDraw();
+    //     message.unshift(...res2.err_msg);
+    //     message.unshift('请勿重复签到！');
+    //     return [err2, { err_msg: message }];
+    // }
 }
